@@ -190,12 +190,13 @@ class GasDataset(torch.utils.data.Dataset):
 # 基线模型 1: LSTM（2层，hidden=128）
 # ─────────────────────────────────────────────
 class BaselineLSTM(nn.Module):
-    """纯LSTM基线: 2层单向LSTM, hidden=128, 最后时间步→MLP"""
+    """纯LSTM基线: 2层单向LSTM, hidden=128, 全局均值池化→MLP"""
     def __init__(self, input_dim=12, hidden=128, dropout=0.3):
         super().__init__()
         self.lstm = nn.LSTM(input_size=input_dim, hidden_size=hidden,
                             num_layers=2, batch_first=True,
                             bidirectional=False, dropout=0.2)
+        self.pool = nn.AdaptiveAvgPool1d(1)
         self.regressor = nn.Sequential(
             nn.Linear(hidden, hidden // 2), nn.BatchNorm1d(hidden // 2),
             nn.GELU(), nn.Dropout(dropout),
@@ -205,8 +206,8 @@ class BaselineLSTM(nn.Module):
         )
 
     def forward(self, x):
-        out, _ = self.lstm(x)          # (batch, seq, hidden)
-        vec = out[:, -1, :]            # 取最后时间步
+        out, _ = self.lstm(x)                                     # (batch, seq, hidden)
+        vec = self.pool(out.permute(0, 2, 1)).squeeze(-1)         # (batch, hidden)
         return self.regressor(vec).squeeze(-1)
 
 
@@ -239,7 +240,7 @@ class BaselineBiLSTM(nn.Module):
 # 基线模型 3: CNN-LSTM（单尺度CNN + 单层LSTM）
 # ─────────────────────────────────────────────
 class BaselineCNNLSTM(nn.Module):
-    """经典串行CNN-LSTM基线: 单尺度CNN → 单层LSTM → MLP"""
+    """经典串行CNN-LSTM基线: 单尺度CNN → 单层LSTM → 全局均值池化 → MLP"""
     def __init__(self, input_dim=12, cnn_channels=64, lstm_hidden=64, dropout=0.3):
         super().__init__()
         self.cnn = nn.Sequential(
@@ -250,6 +251,7 @@ class BaselineCNNLSTM(nn.Module):
         )
         self.lstm = nn.LSTM(input_size=cnn_channels * 2, hidden_size=lstm_hidden,
                             num_layers=1, batch_first=True, bidirectional=False)
+        self.pool = nn.AdaptiveAvgPool1d(1)
         self.regressor = nn.Sequential(
             nn.Linear(lstm_hidden, lstm_hidden // 2), nn.BatchNorm1d(lstm_hidden // 2),
             nn.GELU(), nn.Dropout(dropout),
@@ -259,10 +261,10 @@ class BaselineCNNLSTM(nn.Module):
         )
 
     def forward(self, x):
-        feat = self.cnn(x.permute(0, 2, 1))          # (batch, cnn_ch*2, seq//4)
-        feat = feat.permute(0, 2, 1)                  # (batch, seq//4, cnn_ch*2)
-        out, _ = self.lstm(feat)                      # (batch, seq//4, lstm_hidden)
-        vec = out[:, -1, :]                           # 最后时间步
+        feat = self.cnn(x.permute(0, 2, 1))                      # (batch, cnn_ch*2, seq//4)
+        feat = feat.permute(0, 2, 1)                              # (batch, seq//4, cnn_ch*2)
+        out, _ = self.lstm(feat)                                  # (batch, seq//4, lstm_hidden)
+        vec = self.pool(out.permute(0, 2, 1)).squeeze(-1)         # (batch, lstm_hidden)
         return self.regressor(vec).squeeze(-1)
 
 

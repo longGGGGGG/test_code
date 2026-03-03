@@ -469,8 +469,8 @@ class AblationFixedFusion(nn.Module):
 # ─────────────────────────────────────────────
 class AblationCNNOnly(nn.Module):
     """去除LSTM分支，仅使用CNN空间特征"""
-    def __init__(self, input_dim=12, cnn_channels=32, lstm_hidden=64,
-                 fusion_dim=128, n_heads=4, dropout=0.3):
+    def __init__(self, input_dim=12, cnn_channels=32, lstm_hidden=64,  # noqa: W0613
+                 fusion_dim=128, n_heads=4, dropout=0.3):  # lstm_hidden/n_heads kept for uniform signature
         super().__init__()
         self.cnn_branch = nn.Sequential(
             ResidualCNNBlock(input_dim, cnn_channels, kernel_size=7), nn.MaxPool1d(2),
@@ -505,8 +505,8 @@ class AblationCNNOnly(nn.Module):
 # ─────────────────────────────────────────────
 class AblationLSTMOnly(nn.Module):
     """去除CNN分支，仅使用LSTM时序特征"""
-    def __init__(self, input_dim=12, cnn_channels=32, lstm_hidden=64,
-                 fusion_dim=128, n_heads=4, dropout=0.3):
+    def __init__(self, input_dim=12, cnn_channels=32, lstm_hidden=64,  # noqa: W0613
+                 fusion_dim=128, n_heads=4, dropout=0.3):  # cnn_channels kept for uniform signature
         super().__init__()
         self.lstm_branch = nn.LSTM(input_size=input_dim, hidden_size=lstm_hidden,
                                    num_layers=2, batch_first=True,
